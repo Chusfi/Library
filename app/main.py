@@ -5,9 +5,15 @@ from sqlalchemy import select
 from database import get_db
 from database import User, Book
 from sqlalchemy.orm import selectinload
-
+import bcrypt 
 
 app = FastAPI()
+
+def hash_password(password: str):
+  pwd_bytes = password.encode('utf-8')
+  salt = bcrypt.gensalt()
+  hashed = bcrypt.hashpw(pwd_bytes, salt)
+  return hashed.decode('utf-8')
 
 
 @app.get('/users', response_model=list[UserResponse])
@@ -37,8 +43,9 @@ async def get_books_of_one_user(user_id: int, db:AsyncSession = Depends(get_db))
 
 @app.post('/users/create', response_model=UserResponse, status_code=201)
 async def create_user(user: UserCreate,  db: AsyncSession = Depends(get_db)):
+  passw = hash_password(user.password)
   new_user = User(
-    name = user.name, password= user.password, email=user.email
+    name = user.name, password= passw, email=user.email
   )
   db.add(new_user)
   await db.commit()
@@ -69,9 +76,10 @@ async def up_us(user_id: int, us: UserUpdate,  db: AsyncSession = Depends(get_db
   if us.name is not None:
     up_user.name = us.name
   if us.email is not None:
-    up_user.email = us.email
+    up_user.email = us.email                              
   if us.password is not None:
-    up_user.password = us.password
+    hash_pas = hash_password(us.password)
+    up_user.password = hash_pas
   await db.commit()
   return up_user
 
@@ -139,4 +147,3 @@ async def up_book(book_id: int, book: BookUpdate,  db: AsyncSession = Depends(ge
     up_book.year = book.year
   await db.commit()
   return up_book
-#TODO захешировать/скрыть пароли, 
